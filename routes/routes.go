@@ -5,5 +5,8 @@ import (
 )
 
 func RouteInit(r *mux.Router) {
+	AuthRoutes(r)
 	ProductRoutes(r)
+	UserRoutes(r)
+	ProfileRoutes(r)
 }

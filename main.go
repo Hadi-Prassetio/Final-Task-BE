@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/joho/godotenv"
+
 	"github.com/gorilla/mux"
 )
 
@@ -17,6 +19,12 @@ func main() {
 	// run migration
 	database.RunMigration()
 
+	// env
+	errEnv := godotenv.Load()
+	if errEnv != nil {
+		panic("Failed to load env file")
+	}
+
 	r := mux.NewRouter()
 	routes.RouteInit(r.PathPrefix("/api/v1").Subrouter())
 
@@ -26,5 +34,4 @@ func main() {
 	var port = "5000"
 	fmt.Println("server running localhost:" + port)
 	http.ListenAndServe("localhost:5000", r)
-
 }
