@@ -12,3 +12,15 @@ type Product struct {
 	CreatedAt   time.Time `json:"-"`
 	UpdatedAt   time.Time `json:"-"`
 }
+
+type ProductTransaction struct {
+	ID          int    `json:"id" `
+	Name        string `json:"name" `
+	Price       int    `json:"price"`
+	Description string `json:"description" `
+	Image       string `json:"image"`
+}
+
+func (ProductTransaction) TableName() string {
+	return "Products"
+}
