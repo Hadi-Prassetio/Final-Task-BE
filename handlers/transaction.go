@@ -14,7 +14,9 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
+	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/coreapi"
+	"github.com/midtrans/midtrans-go/snap"
 )
 
 var c = coreapi.Client{
@@ -174,7 +176,7 @@ func (h *handlerTransaction) UpdateTransaction(w http.ResponseWriter, r *http.Re
 		json.NewEncoder(w).Encode(response)
 	}
 
-	dataTransactions, err := h.TransactionRepository.FindbyIDTransaction(idTrans, "unpay")
+	dataTransactions, err := h.TransactionRepository.FindbyIDTransaction(idTrans, request.Status)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(err.Error())
@@ -182,30 +184,30 @@ func (h *handlerTransaction) UpdateTransaction(w http.ResponseWriter, r *http.Re
 	}
 
 	// // 1. Initiate Snap client
-	// var s = snap.Client{}
-	// s.New("SB-Mid-server-4eCWOLTHCsl1kjXWS_5hPoWZ", midtrans.Sandbox)
+	var s = snap.Client{}
+	s.New(os.Getenv("SERVER_KEY"), midtrans.Sandbox)
 	// // Use to midtrans.Production if you want Production Environment (accept real transaction).
 
 	// // 2. Initiate Snap request param
-	// req := &snap.Request{
-	// 	TransactionDetails: midtrans.TransactionDetails{
-	// 		OrderID:  strconv.Itoa(idTrans),
-	// 		GrossAmt: int64(dataTransactions.Total),
-	// 	},
-	// 	CreditCard: &snap.CreditCardDetails{
-	// 		Secure: true,
-	// 	},
-	// 	CustomerDetail: &midtrans.CustomerDetails{
-	// 		FName: dataTransactions.User.Name,
-	// 		Email: dataTransactions.User.Email,
-	// 	},
-	// }
+	req := &snap.Request{
+		TransactionDetails: midtrans.TransactionDetails{
+			OrderID:  strconv.Itoa(dataTransactions.ID),
+			GrossAmt: int64(dataTransactions.Total),
+		},
+		CreditCard: &snap.CreditCardDetails{
+			Secure: true,
+		},
+		CustomerDetail: &midtrans.CustomerDetails{
+			FName: dataTransactions.User.Fullname,
+			Email: dataTransactions.User.Email,
+		},
+	}
 
 	// // 3. Execute request create Snap transaction to Midtrans Snap API
-	// snapResp, _ := s.CreateTransaction(req)
+	snapResp, _ := s.CreateTransaction(req)
 
 	w.WriteHeader(http.StatusOK)
-	response := dto.SuccessResult{Code: 200, Data: dataTransactions}
+	response := dto.SuccessResult{Code: 200, Data: snapResp}
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -227,47 +229,47 @@ func (h *handlerTransaction) FindbyIDTransaction(w http.ResponseWriter, r *http.
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *handlerTransaction) Notification(w http.ResponseWriter, r *http.Request) {
-	var notificationPayload map[string]interface{}
+// func (h *handlerTransaction) Notification(w http.ResponseWriter, r *http.Request) {
+// 	var notificationPayload map[string]interface{}
 
-	err := json.NewDecoder(r.Body).Decode(&notificationPayload)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		response := dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()}
-		json.NewEncoder(w).Encode(response)
-		return
-	}
+// 	err := json.NewDecoder(r.Body).Decode(&notificationPayload)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		response := dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()}
+// 		json.NewEncoder(w).Encode(response)
+// 		return
+// 	}
 
-	transactionStatus := notificationPayload["transaction_status"].(string)
-	fraudStatus := notificationPayload["fraud_status"].(string)
-	orderId := notificationPayload["order_id"].(string)
+// 	transactionStatus := notificationPayload["transaction_status"].(string)
+// 	fraudStatus := notificationPayload["fraud_status"].(string)
+// 	orderId := notificationPayload["order_id"].(string)
 
-	if transactionStatus == "capture" {
-		if fraudStatus == "challenge" {
-			// TODO set transaction status on your database to 'challenge'
-			// e.g: 'Payment status challenged. Please take action on your Merchant Administration Portal
-			h.TransactionRepository.UpdateTransactions("pending", orderId)
-		} else if fraudStatus == "accept" {
-			// TODO set transaction status on your database to 'success'
-			h.TransactionRepository.UpdateTransactions("success", orderId)
-		}
-	} else if transactionStatus == "settlement" {
-		// TODO set transaction status on your databaase to 'success'
-		h.TransactionRepository.UpdateTransactions("success", orderId)
-	} else if transactionStatus == "deny" {
-		// TODO you can ignore 'deny', because most of the time it allows payment retries
-		// and later can become success
-		h.TransactionRepository.UpdateTransactions("failed", orderId)
-	} else if transactionStatus == "cancel" || transactionStatus == "expire" {
-		// TODO set transaction status on your databaase to 'failure'
-		h.TransactionRepository.UpdateTransactions("failed", orderId)
-	} else if transactionStatus == "pending" {
-		// TODO set transaction status on your databaase to 'pending' / waiting payment
-		h.TransactionRepository.UpdateTransactions("pending", orderId)
-	}
+// 	if transactionStatus == "capture" {
+// 		if fraudStatus == "challenge" {
+// 			// TODO set transaction status on your database to 'challenge'
+// 			// e.g: 'Payment status challenged. Please take action on your Merchant Administration Portal
+// 			h.TransactionRepository.UpdateTransaction("pending", orderId)
+// 		} else if fraudStatus == "accept" {
+// 			// TODO set transaction status on your database to 'success'
+// 			h.TransactionRepository.UpdateTransaction("success", orderId)
+// 		}
+// 	} else if transactionStatus == "settlement" {
+// 		// TODO set transaction status on your databaase to 'success'
+// 		h.TransactionRepository.UpdateTransaction("success", orderId)
+// 	} else if transactionStatus == "deny" {
+// 		// TODO you can ignore 'deny', because most of the time it allows payment retries
+// 		// and later can become success
+// 		h.TransactionRepository.UpdateTransaction("failed", orderId)
+// 	} else if transactionStatus == "cancel" || transactionStatus == "expire" {
+// 		// TODO set transaction status on your databaase to 'failure'
+// 		h.TransactionRepository.UpdateTransaction("failed", orderId)
+// 	} else if transactionStatus == "pending" {
+// 		// TODO set transaction status on your databaase to 'pending' / waiting payment
+// 		h.TransactionRepository.UpdateTransaction("pending", orderId)
+// 	}
 
-	w.WriteHeader(http.StatusOK)
-}
+// 	w.WriteHeader(http.StatusOK)
+// }
 
 func (h *handlerTransaction) AllProductById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

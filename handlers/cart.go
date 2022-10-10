@@ -196,6 +196,7 @@ func convertResponseCart(u models.Cart) models.Cart {
 	return models.Cart{
 		ID:        u.ID,
 		Product:   u.Product,
+		Qty:       u.Qty,
 		SubAmount: u.SubAmount,
 	}
 }
